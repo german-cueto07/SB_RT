@@ -5,6 +5,10 @@ import Scoreboard   from './components/Scoreboard'
 import EventFeed    from './components/EventFeed'
 import NewEventForm from './components/NewEventForm'
 import MatchChat from './components/MatchChat'   // [E]
+import ScoreHistory from './components/ScoreHistory' // [A]
+import PresenceIndicator from './components/PresenceIndicator' 
+
+
 
 export default function App() {
   const [match,  setMatch]  = useState(null)
@@ -12,6 +16,7 @@ export default function App() {
   const [error,  setError]  = useState(null)
   const [toasts, setToasts] = useState([])          // [C]
   const localInsertIds = useRef(new Set())      // [C] ids insertados por este cliente
+  const [scoreHistory, setScoreHistory] = useState([])   // [A]
 
   // ── Carga inicial ──────────────────────────────────────────────
   // Se ejecuta una sola vez al montar. Garantiza que un cliente que
@@ -72,6 +77,21 @@ export default function App() {
           }
         },
       )
+  'postgres_changes',
+  { event: 'UPDATE', schema: 'public', table: 'match_state' },
+  (payload) => {
+    setMatch(payload.new)
+    // [A] Cada UPDATE agrega una entrada al historial en memoria
+    setScoreHistory((prev) => [
+      {
+        home: payload.new.home_score,
+        away: payload.new.away_score,
+        at: new Date().toISOString(),
+      },
+      ...prev,
+    ])
+  },
+)
       .subscribe()
 
     return () => {
@@ -134,13 +154,14 @@ export default function App() {
       <h1 style={{ fontSize: '1.1rem', color: '#888', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         Panel de Partido en Vivo
       </h1>
-
+      <PresenceIndicator /> 
       <Scoreboard
         match={match}
         onGoalHome={goalHome}
         onGoalAway={goalAway}
         onReset={resetScore}
       />
+      <ScoreHistory history={scoreHistory} />   {/* [A] */}
 
       <NewEventForm onInsert={(id) => localInsertIds.current.add(id)} />
 
