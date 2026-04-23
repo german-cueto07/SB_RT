@@ -77,21 +77,22 @@ export default function App() {
           }
         },
       )
-  'postgres_changes',
-  { event: 'UPDATE', schema: 'public', table: 'match_state' },
-  (payload) => {
-    setMatch(payload.new)
-    // [A] Cada UPDATE agrega una entrada al historial en memoria
-    setScoreHistory((prev) => [
-      {
-        home: payload.new.home_score,
-        away: payload.new.away_score,
-        at: new Date().toISOString(),
-      },
-      ...prev,
-    ])
-  },
-)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'match_state' },
+        (payload) => {
+          setMatch(payload.new)
+          // [A] Cada UPDATE agrega una entrada al historial en memoria
+          setScoreHistory((prev) => [
+            {
+              home: payload.new.home_score,
+              away: payload.new.away_score,
+              at: new Date().toISOString(),
+            },
+            ...prev,
+          ])
+        },
+      )
       .subscribe()
 
     return () => {
