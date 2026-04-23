@@ -4,6 +4,7 @@ import Scoreboard   from './components/Scoreboard'
 import EventFeed    from './components/EventFeed'
 import NewEventForm from './components/NewEventForm'
 import ScoreHistory from './components/ScoreHistory' // [A]
+import MatchChat from './components/MatchChat'   // [E]
 
 export default function App() {
   const [match,  setMatch]  = useState(null)
@@ -134,6 +135,7 @@ export default function App() {
       <NewEventForm />
 
       <EventFeed events={events} />
+      <MatchChat />    {/* [E] */}
     </div>
   )
 }
