@@ -3,8 +3,9 @@ import { supabase } from './lib/supabaseClient'
 import Scoreboard   from './components/Scoreboard'
 import EventFeed    from './components/EventFeed'
 import NewEventForm from './components/NewEventForm'
-import PresenceIndicator from './components/PresenceIndicator' 
 import MatchChat from './components/MatchChat'   // [E]
+import ScoreHistory from './components/ScoreHistory' // [A]
+import PresenceIndicator from './components/PresenceIndicator' 
 
 
 
@@ -12,6 +13,7 @@ export default function App() {
   const [match,  setMatch]  = useState(null)
   const [events, setEvents] = useState([])
   const [error,  setError]  = useState(null)
+  const [scoreHistory, setScoreHistory] = useState([])   // [A]
 
   // ── Carga inicial ──────────────────────────────────────────────
   // Se ejecuta una sola vez al montar. Garantiza que un cliente que
@@ -52,17 +54,21 @@ export default function App() {
         (payload) => setMatch(payload.new),
       )
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'match_events' },
-        (payload) => {
-          setEvents((prev) => {
-            // Evitar duplicados si la carga inicial y el evento realtime
-            // llegan en orden inesperado (condición de carrera).
-            if (prev.some((e) => e.id === payload.new.id)) return prev
-            return [payload.new, ...prev]
-          })
-        },
-      )
+  'postgres_changes',
+  { event: 'UPDATE', schema: 'public', table: 'match_state' },
+  (payload) => {
+    setMatch(payload.new)
+    // [A] Cada UPDATE agrega una entrada al historial en memoria
+    setScoreHistory((prev) => [
+      {
+        home: payload.new.home_score,
+        away: payload.new.away_score,
+        at: new Date().toISOString(),
+      },
+      ...prev,
+    ])
+  },
+)
       .subscribe()
 
     return () => {
@@ -127,6 +133,7 @@ export default function App() {
         onGoalAway={goalAway}
         onReset={resetScore}
       />
+      <ScoreHistory history={scoreHistory} />   {/* [A] */}
 
       <NewEventForm />
 
