@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'   // agregar useRef
+import ToastContainer from './components/ToastContainer'   // [C]
 import { supabase } from './lib/supabaseClient'
 import Scoreboard   from './components/Scoreboard'
 import EventFeed    from './components/EventFeed'
@@ -13,6 +14,8 @@ export default function App() {
   const [match,  setMatch]  = useState(null)
   const [events, setEvents] = useState([])
   const [error,  setError]  = useState(null)
+  const [toasts, setToasts] = useState([])          // [C]
+  const localInsertIds = useRef(new Set())      // [C] ids insertados por este cliente
   const [scoreHistory, setScoreHistory] = useState([])   // [A]
 
   // ── Carga inicial ──────────────────────────────────────────────
@@ -54,6 +57,26 @@ export default function App() {
         (payload) => setMatch(payload.new),
       )
       .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'match_events' },
+        (payload) => {
+          // Actualizar el feed (igual que antes)
+          setEvents((prev) => {
+            if (prev.some((e) => e.id === payload.new.id)) return prev
+            return [payload.new, ...prev]
+          })
+
+          // [C] Solo mostrar toast si el evento lo insertó otro cliente
+          if (localInsertIds.current.has(payload.new.id)) {
+            localInsertIds.current.delete(payload.new.id)
+          } else {
+            setToasts((prev) => [
+              ...prev,
+              { ...payload.new, toastId: Date.now() },
+            ])
+          }
+        },
+      )
   'postgres_changes',
   { event: 'UPDATE', schema: 'public', table: 'match_state' },
   (payload) => {
@@ -123,6 +146,11 @@ export default function App() {
 
   return (
     <div style={{ maxWidth: '760px', margin: '2rem auto', padding: '0 1rem', fontFamily: 'sans-serif' }}>
+      <ToastContainer
+      toasts={toasts}
+      onDismiss={(id) => setToasts((prev) => prev.filter((t) => t.toastId !== id))}
+      />
+
       <h1 style={{ fontSize: '1.1rem', color: '#888', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         Panel de Partido en Vivo
       </h1>
@@ -135,7 +163,7 @@ export default function App() {
       />
       <ScoreHistory history={scoreHistory} />   {/* [A] */}
 
-      <NewEventForm />
+      <NewEventForm onInsert={(id) => localInsertIds.current.add(id)} />
 
       <EventFeed events={events} />
       <MatchChat />    {/* [E] */}
