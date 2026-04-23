@@ -137,3 +137,5 @@ import PresenceIndicator from './components/PresenceIndicator'   // [B]
 ## Pregunta de reflexión
 
 Presence usa WebSocket, no la base de datos. Si el servidor reinicia o la conexión se cae, ¿qué pasaría con el contador? ¿Por qué Presence no es adecuado para guardar quién visitó la página históricamente?
+
+Las conexiones en WebSockets son canales que existen mientras algún usuario esté en él, sin embargo, no tiene persistencia porque no se guardan las interacciones en realtime solo salen mientrás estás ahí.
