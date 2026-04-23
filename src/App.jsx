@@ -7,8 +7,7 @@ import NewEventForm from './components/NewEventForm'
 import MatchChat from './components/MatchChat'   // [E]
 import ScoreHistory from './components/ScoreHistory' // [A]
 import PresenceIndicator from './components/PresenceIndicator' 
-
-
+import StatsPanel from './components/StatsPanel' 
 
 export default function App() {
   const [match,  setMatch]  = useState(null)
@@ -48,32 +47,45 @@ export default function App() {
   // ── Suscripción Realtime ───────────────────────────────────────
   // Un canal agrupa ambas suscripciones. El cleanup cancela el canal
   // cuando el componente se desmonta, evitando listeners duplicados.
-  useEffect(() => {
+useEffect(() => {
     const channel = supabase
       .channel('match-live')
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'match_state' },
-        (payload) => setMatch(payload.new),
+        (payload) => {
+          // Actualizamos el estado del marcador
+          setMatch(payload.new);
+          
+          // [A] Agregamos al historial (Unificamos aquí la lógica)
+          setScoreHistory((prev) => [
+            {
+              home: payload.new.home_score,
+              away: payload.new.away_score,
+              at: new Date().toISOString(),
+            },
+            ...prev,
+          ]);
+        },
       )
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'match_events' },
         (payload) => {
-          // Actualizar el feed (igual que antes)
+          // Actualizar el feed
           setEvents((prev) => {
-            if (prev.some((e) => e.id === payload.new.id)) return prev
-            return [payload.new, ...prev]
-          })
+            if (prev.some((e) => e.id === payload.new.id)) return prev;
+            return [payload.new, ...prev];
+          });
 
-          // [C] Solo mostrar toast si el evento lo insertó otro cliente
+          // [C] Lógica de Toasts
           if (localInsertIds.current.has(payload.new.id)) {
-            localInsertIds.current.delete(payload.new.id)
+            localInsertIds.current.delete(payload.new.id);
           } else {
             setToasts((prev) => [
               ...prev,
               { ...payload.new, toastId: Date.now() },
-            ])
+            ]);
           }
         },
       )
@@ -96,9 +108,9 @@ export default function App() {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // ── Acciones del marcador ──────────────────────────────────────
   async function goalHome() {
@@ -166,6 +178,8 @@ export default function App() {
 
       <NewEventForm onInsert={(id) => localInsertIds.current.add(id)} />
 
+      <StatsPanel events={events} />
+      <NewEventForm />
       <EventFeed events={events} />
       <MatchChat />    {/* [E] */}
     </div>
